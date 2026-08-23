@@ -5,7 +5,6 @@ description: "API de autenticación JWT"
 arch:
   - amd64
   - aarch64
-- 
 ports:
   8181/tcp: 8181
 startup: application
