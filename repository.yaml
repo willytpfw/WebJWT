@@ -1,11 +1,3 @@
-name: "WebJWT"
-version: "1.0.0"
-slug: "webjwt"
-description: "API de autenticaciÃ³n JWT"
-arch:
-  - amd64
-  - aarch64
-ports:
-  8181/tcp: 8181
-startup: application
-boot: auto
+name: "WebJWT Add-ons"
+url: "https://github.com/willytpfw/WebJWT"
+maintainer: "willytpfw"
