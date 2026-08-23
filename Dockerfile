@@ -1,22 +1,12 @@
-#See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
-
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+ARG BUILD_FROM
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["WebJWT.csproj", "."]
-RUN dotnet restore "./WebJWT.csproj"
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "WebJWT.csproj" -c Release -o /app/build
+RUN dotnet publish -c Release -o /app
 
-FROM build AS publish
-RUN dotnet publish "WebJWT.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "WebJWT.dll"]
+COPY --from=build /app .
+COPY run.sh /
+RUN chmod a+x /run.sh
+CMD [ "/run.sh" ]
