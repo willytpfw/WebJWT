@@ -1,4 +1,3 @@
-﻿#!/usr/bin/with-contenv bashio
-bashio::log.info "Iniciando WebJWT..."
-
+#!/bin/sh
+set -e
 exec dotnet /app/WebJWT.dll --urls "http://0.0.0.0:8181"
