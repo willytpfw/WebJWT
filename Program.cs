@@ -50,17 +50,18 @@ app.MapGet("/auth/{user}/{password}", (string user, string password) =>
         };
         var token = tokenHandler.CreateToken(tokenDes);
 
-        return tokenHandler.WriteToken(token);
+        return token.UnsafeToString();
     }
     else
     { return "Usuario no valido"; }
 });
 
-app.MapGet("Dec/{Token}", (string Token) =>
+
+app.MapGet("/Dec", (HttpContext context) =>
 {
+    string token = context.Request.Query["Token"].ToString();
     try
     {
-
         var handler = new JwtSecurityTokenHandler();
         var validationParameters = new TokenValidationParameters
         {
@@ -70,20 +71,21 @@ app.MapGet("Dec/{Token}", (string Token) =>
         };
 
         SecurityToken validatedToken;
-        var principal = handler.ValidateToken(Token, validationParameters, out validatedToken);
+        var principal = handler.ValidateToken(token, validationParameters, out validatedToken);
         if (validatedToken != null)
         {
             // Obtain specific key of claim
             var specificClaims = (validatedToken as JwtSecurityToken).Claims.Where(c => c.Type == "GUID");
             var sGUID = specificClaims.ToList().FirstOrDefault().Value;
-            return StatusCodes.Status200OK;
+            return Results.Ok(new { GUID = sGUID });
         }
-        else { return StatusCodes.Status403Forbidden; }
+        else { return Results.StatusCode(StatusCodes.Status403Forbidden); }
     }
     catch (Exception)
     {
-        return StatusCodes.Status403Forbidden;
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
     }
 });
+
 
 app.Run();
