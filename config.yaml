@@ -1,4 +1,4 @@
-﻿name: "WebJWT"
+name: "WebJWT"
 version: "1.0.0"
 slug: "webjwt"
 description: "API de autenticación JWT"
