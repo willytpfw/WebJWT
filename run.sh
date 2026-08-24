@@ -10,6 +10,5 @@ export JwtKey="$JwtKey"
 export JwtUsername="$JwtUsername"
 export JwtPassword="$JwtPassword"
 
-exec dotnet /app/WebJWT.dll
 exec dotnet /app/WebJWT.dll --urls "http://0.0.0.0:8181"
 
