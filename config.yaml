@@ -1,5 +1,5 @@
 name: "WebJWT"
-version: "1.2.2"
+version: "1.2.3"
 slug: "webjwt"
 description: "API de autenticación JWT"
 arch:
@@ -9,3 +9,11 @@ ports:
   8181/tcp: 8181
 startup: application
 boot: auto
+options:
+  JwtKey: ""
+  JwtUsername: ""
+  JwtPassword: ""
+schema:
+  JwtKey: str
+  JwtUsername: str
+  JwtPassword: str
