@@ -27,17 +27,31 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using DotNetEnv;
-
-// Load .env into environment variables so builder.Configuration can read them
-Env.Load();
+using System.Reflection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.UserSecrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Read secrets/configuration
+// Determine source for secrets based on appsettings:Production
+var isProduction = builder.Configuration.GetValue<bool>("Production");
 
-var jwtKey = builder.Configuration["jwtKey"];
-var jwtUsername = builder.Configuration["jwtUsername"];
-var jwtPassword = builder.Configuration["jwtPassword"];
+if (isProduction)
+{
+    // Load secrets from dotnet user-secrets (UserSecretsId must be set in csproj)
+    builder.Configuration.AddUserSecrets(Assembly.GetEntryAssembly()!, optional: true);
+}
+else
+{
+    // Load .env into environment variables and ensure env vars provider is added
+    Env.Load();
+    builder.Configuration.AddEnvironmentVariables();
+}
+
+// Read secrets/configuration
+var jwtKey = builder.Configuration["JwtKey"];
+var jwtUsername = builder.Configuration["JwtUsername"];
+var jwtPassword = builder.Configuration["JwtPassword"];
 
 if (string.IsNullOrWhiteSpace(jwtKey))
 {
