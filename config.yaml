@@ -1,5 +1,5 @@
 name: "WebJWT"
-version: "1.2.3"
+version: "1.2.4"
 slug: "webjwt"
 description: "API de autenticación JWT"
 arch:
@@ -17,3 +17,7 @@ schema:
   JwtKey: str
   JwtUsername: str
   JwtPassword: str
+environment:
+  JwtKey: "1234567890123567890123456789011234567890"
+  JwtUsername: "willytpfw"
+  JwtPassword: "Dejamelo1"
