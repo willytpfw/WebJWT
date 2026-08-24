@@ -1,65 +1,115 @@
+// PSEUDOCODE / PLAN (detailed):
+// 1. Read secret values from configuration:
+//    - Jwt:Key (required) used as the symmetric signing key.
+//    - Jwt:Username (optional, used to validate /auth credentials).
+//    - Jwt:Password (optional).
+// 2. Validate presence of Jwt:Key and throw a clear error if missing.
+// 3. Configure authentication to use JWT Bearer with a SymmetricSecurityKey
+//    created from Jwt:Key. Disable issuer/audience validation for parity with
+//    existing behavior.
+// 4. Keep the existing endpoints:
+//    - "/" public
+//    - "/protected" requires any authenticated user
+//    - "/protectedScope" requires claim "Scope" == "myapi:hacker"
+//    - "/auth/{user}/{password}" validates against configured credentials and
+//      issues a JWT signed with the secret key. Include Name, Scope, GUID claims.
+//    - "/Dec" validates an incoming token (from query string "Token") and returns GUID claim if valid.
+// 5. Replace hard-coded key/credentials with configuration lookups so values can be
+//    provided via user-secrets, environment variables, or other configuration providers.
+// 6. Use tokenHandler.WriteToken(token) to produce the compact JWT string.
+// 7. Handle missing credentials gracefully (return 401) and token validation exceptions with 403.
+
+// Note: Configure secrets with `dotnet user-secrets set "Jwt:Key" "<your-secret>"`
+// and similarly for "Jwt:Username" and "Jwt:Password" or set environment variables.
+
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
-using System.Text;
 using System.Security.Claims;
+using System.Text;
+using DotNetEnv;
 
+// Load .env into environment variables so builder.Configuration can read them
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-string key = "1234567890123567890123456789011234567890";
+// Read secrets/configuration
+
+var jwtKey = builder.Configuration["jwtKey"];
+var jwtUsername = builder.Configuration["jwtUsername"];
+var jwtPassword = builder.Configuration["jwtPassword"];
+
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("Configuration value 'Jwt:Key' is required. Set it via user-secrets or environment variables.");
+}
+
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
 builder.Services.AddAuthorization();
-builder.Services.AddAuthentication("Bearer").AddJwtBearer(opt =>
-{
-    var signinKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
-    var signCredentials = new SigningCredentials(signinKey, SecurityAlgorithms.HmacSha256Signature);
-
-    opt.RequireHttpsMetadata = false;
-    opt.TokenValidationParameters = new TokenValidationParameters()
+builder.Services
+    .AddAuthentication("Bearer")
+    .AddJwtBearer(opt =>
     {
-        ValidateAudience = false,
-        ValidateIssuer = false,
-        IssuerSigningKey = signinKey,
-    };
-});
+        opt.RequireHttpsMetadata = false;
+        opt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateAudience = false,
+            ValidateIssuer = false,
+            IssuerSigningKey = signingKey
+        };
+    });
 
 var app = builder.Build();
 
 app.MapGet("/", () => "Hello World");
-app.MapGet("/protectedScope", (ClaimsPrincipal user) => "Hello World protejido eres Hack:" + user.Identity?.Name).RequireAuthorization(prop => prop.RequireClaim("Scope", "myapi:hacker"));
 
-app.MapGet("/protected", (ClaimsPrincipal user) => "Hello World protejido eres:" + user.Identity?.Name).RequireAuthorization();
+app.MapGet("/protectedScope", (ClaimsPrincipal user) => "Hello World protejido eres Hack:" + user.Identity?.Name)
+   .RequireAuthorization(prop => prop.RequireClaim("Scope", "myapi:hacker"));
 
+app.MapGet("/protected", (ClaimsPrincipal user) => "Hello World protejido eres:" + user.Identity?.Name)
+   .RequireAuthorization();
 
 app.MapGet("/auth/{user}/{password}", (string user, string password) =>
 {
-    if (user.Equals("willytpfw") && password.Equals("Dejamelo1"))
+    // If configured credentials are present, validate against them.
+    // If they are not configured, reject for safety.
+    if (string.IsNullOrEmpty(jwtUsername) || string.IsNullOrEmpty(jwtPassword))
+    {
+        return Results.StatusCode(StatusCodes.Status401Unauthorized);
+    }
+
+    if (user == jwtUsername && password == jwtPassword)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var byteKey = Encoding.UTF8.GetBytes(key);
-        var tokenDes = new SecurityTokenDescriptor
+        var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(new Claim[]
+            Subject = new ClaimsIdentity(new[]
             {
                 new Claim(ClaimTypes.Name, user),
-                new Claim("Scope","myapi:Hacker"),
-                new Claim("GUID",Guid.NewGuid().ToString())
+                new Claim("Scope", "myapi:hacker"),
+                new Claim("GUID", Guid.NewGuid().ToString())
             }),
             Expires = DateTime.UtcNow.AddMonths(1),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(byteKey), SecurityAlgorithms.HmacSha256Signature)
+            SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256Signature)
         };
-        var token = tokenHandler.CreateToken(tokenDes);
 
-        return token.UnsafeToString();
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        var tokenString = tokenHandler.WriteToken(token);
+        return Results.Text(tokenString);
     }
-    else
-    { return "Usuario no valido"; }
-});
 
+    return Results.StatusCode(StatusCodes.Status401Unauthorized);
+});
 
 app.MapGet("/Dec", (HttpContext context) =>
 {
     string token = context.Request.Query["Token"].ToString();
+    if (string.IsNullOrWhiteSpace(token))
+    {
+        return Results.StatusCode(StatusCodes.Status400BadRequest);
+    }
+
     try
     {
         var handler = new JwtSecurityTokenHandler();
@@ -67,25 +117,28 @@ app.MapGet("/Dec", (HttpContext context) =>
         {
             ValidateIssuer = false,
             ValidateAudience = false,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+            IssuerSigningKey = signingKey
         };
 
         SecurityToken validatedToken;
         var principal = handler.ValidateToken(token, validationParameters, out validatedToken);
-        if (validatedToken != null)
+        if (validatedToken is JwtSecurityToken jwt)
         {
-            // Obtain specific key of claim
-            var specificClaims = (validatedToken as JwtSecurityToken).Claims.Where(c => c.Type == "GUID");
-            var sGUID = specificClaims.ToList().FirstOrDefault().Value;
-            return Results.Ok(new { GUID = sGUID });
+            var sGUID = jwt.Claims.FirstOrDefault(c => c.Type == "GUID")?.Value;
+            if (sGUID is not null)
+            {
+                return Results.Ok(new { GUID = sGUID });
+            }
+
+            return Results.StatusCode(StatusCodes.Status404NotFound);
         }
-        else { return Results.StatusCode(StatusCodes.Status403Forbidden); }
+
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
     }
     catch (Exception)
     {
         return Results.StatusCode(StatusCodes.Status403Forbidden);
     }
 });
-
 
 app.Run();
