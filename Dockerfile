@@ -9,4 +9,7 @@ WORKDIR /app
 COPY --from=build /app .
 COPY run.sh /
 RUN chmod a+x /run.sh
+
+RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
+
 CMD [ "/run.sh" ]

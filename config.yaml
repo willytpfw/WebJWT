@@ -1,5 +1,5 @@
 name: "WebJWT"
-version: "1.2.4"
+version: "1.2.5"
 slug: "webjwt"
 description: "API de autenticación JWT"
 arch:

@@ -55,7 +55,7 @@ var jwtPassword = builder.Configuration["JwtPassword"];
 
 if (string.IsNullOrWhiteSpace(jwtKey))
 {
-    throw new InvalidOperationException("Configuration value 'Jwt:Key' is required. Set it via user-secrets or environment variables.");
+    throw new InvalidOperationException($@"Configuration value 'Jwt:Key' is required. Set it via user-secrets or environment variables. {DateTime.UtcNow}");
 }
 
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));

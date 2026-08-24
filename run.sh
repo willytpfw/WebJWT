@@ -1,9 +1,15 @@
 #!/bin/sh
+
 set -e
 
-#!/usr/bin/with-contenv bashio
-export JwtKey=$(bashio::config 'JwtKey')
-export JwtUsername=$(bashio::config 'JwtUsername')
-export JwtPassword=$(bashio::config 'JwtPassword')
+JwtKey=$(jq -r '.JwtKey' /data/options.json)
+JwtUsername=$(jq -r '.JwtUsername' /data/options.json)
+JwtPassword=$(jq -r '.JwtPassword' /data/options.json)
+
+export JwtKey="$JwtKey"
+export JwtUsername="$JwtUsername"
+export JwtPassword="$JwtPassword"
+
+exec dotnet /app/WebJWT.dll
 exec dotnet /app/WebJWT.dll --urls "http://0.0.0.0:8181"
 
